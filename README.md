@@ -10,6 +10,9 @@ local flySpeed = 50
 local currentCategory = "Main"
 local savedParts = {}
 
+-- ตัวควบคุมฟิสิกส์การบิน
+local bV, bG = nil, nil
+
 -- สร้างหน้าต่าง UI หลัก
 local sg = Instance.new("ScreenGui", L.PlayerGui)
 sg.ResetOnSpawn = false
@@ -139,13 +142,24 @@ flyBtn.MouseButton1Click:Connect(function()
     local anim = c and c:FindFirstChild("Animate")
     local r = c and c:FindFirstChild("HumanoidRootPart")
     
-    if h then
+    if r and h then
         if flying then
             if anim then anim.Enabled = false end
             for _, tr in ipairs(h:GetPlayingAnimationTracks()) do tr:Stop() end
+            
+            -- สร้างระบบตัดฟิสิกส์ครอบคลุมทิศทางและมุมหัน
+            bV = Instance.new("BodyVelocity", r)
+            bV.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
+            bV.Velocity = Vector3.new(0, 0, 0)
+            
+            bG = Instance.new("BodyGyro", r)
+            bG.MaxTorque = Vector3.new(math.huge, math.huge, math.huge)
+            bG.CFrame = r.CFrame
         else
             if anim then anim.Enabled = true end
-            if r then r.Velocity = Vector3.new(0,0,0) end
+            if bV then bV:Destroy() bV = nil end
+            if bG then bG:Destroy() bG = nil end
+            r.Velocity = Vector3.new(0,0,0)
         end
     end
 end)
@@ -218,32 +232,27 @@ R.RenderStepped:Connect(function()
     if speedEnabled then hum.WalkSpeed = speedVal else hum.WalkSpeed = 16 end
     if jumpEnabled then hum.JumpPower = jumpVal else hum.JumpPower = 50 end
 
-    -- [แก้ไขครั้งสำคัญ] ระบบบินที่รองรับทั้ง มือถือ (จอยสติ๊ก) และ คอม (คีย์บอร์ด)
-    if flying then
-        hrp.Velocity = Vector3.new(0, 0, 0)
-
-        -- คำนวณทิศทางการหันหน้าโดยอิงตามมุมกล้องแนวราบ (X, Z) 100% หน้าจะตรงกับกล้องตลอดเวลา
-        local cameraCFrame = C.CFrame
-        local lookDir = cameraCFrame.LookVector
+    -- [แก้ไขถาวรด้วย BodyMover] ระบบบินจอยสติ๊กตัดการไหลของฟิสิกส์เดิม
+    if flying and bV and bG then
+        -- ล็อกหน้าตัวละครตามการหมุนของมุมกล้องแนวราบ (X, Z) ถาวร
+        local lookDir = C.CFrame.LookVector
         local flatLookAt = Vector3.new(lookDir.X, 0, lookDir.Z).Unit
-        local targetCFrame = CFrame.new(hrp.Position, hrp.Position + flatLookAt)
+        bG.CFrame = CFrame.new(hrp.Position, hrp.Position + flatLookAt)
 
-        -- รองรับปุ่มบินขึ้น/ลงเสริมสำหรับมือถือ (ถ้ากดค้างคีย์บอร์ด Space/Ctrl ก็ทำงานด้วย)
+        -- เช็คปุ่มบินขึ้น/ลงจำลองของระบบคีย์บอร์ดเสริม
         local verticalMove = 0
         if U:IsKeyDown(Enum.KeyCode.Space) then verticalMove = 1
         elseif U:IsKeyDown(Enum.KeyCode.LeftControl) then verticalMove = -1 end
 
-        -- เช็คความเคลื่อนไหวจากระบบเกม (ครอบคลุมทั้งการขยับจอยสติ๊กบนมือถือ และปุ่มเดินบนคอม)
+        -- เช็คการดันจอยสติ๊กบนมือถือ
         if hum.MoveDirection.Magnitude > 0 or verticalMove ~= 0 then
-            -- แปลงทิศทางจอยสติ๊กให้เคลื่อนที่ตามทิศทางมุมกล้องจริง
-            local moveDir = hum.MoveDirection * (flySpeed / 10)
-            local vertDir = Vector3.new(0, verticalMove * (flySpeed / 10), 0)
-            
-            -- อัปเดตตำแหน่งพิกัดใหม่ โดยหน้ายังคงล็อกหันตรงตามเมาส์/กล้องตลอดเวลา ไม่บิดเป๋
-            hrp.CFrame = targetCFrame + moveDir + vertDir
+            -- บินเคลื่อนที่ตามทิศทางจอยสติ๊ก + กล้อง
+            local moveDir = hum.MoveDirection * flySpeed
+            local vertDir = Vector3.new(0, verticalMove * flySpeed, 0)
+            bV.Velocity = moveDir + vertDir
         else
-            -- ปล่อยจอยสติ๊กหรือปล่อยปุ่มเดินปุ๊บ ล็อกตัวนิ่งสนิทหันหน้าตามกล้องทันที ไม่มีทางไหลหรือถอยหลังเอง
-            hrp.CFrame = targetCFrame
+            -- ปล่อยจอยสติ๊กปุ๊บ ความเร็วเป็น 0 ทันที ล็อกอยู่กลางอากาศไม่ไหลชัวร์
+            bV.Velocity = Vector3.new(0, 0, 0)
         end
     end
 
@@ -269,8 +278,8 @@ R.RenderStepped:Connect(function()
         end
         if targetP and targetP.Character and targetP.Character:FindFirstChild("HumanoidRootPart") then
             local targetHrp = targetP.Character.HumanoidRootPart
+            if flying then if bV then bV.Velocity = Vector3.new(0,0,0) end end
             hrp.CFrame = targetHrp.CFrame * CFrame.new(0, 0, 3)
-            hrp.Velocity = Vector3.new(0, 0, 0)
         end
     end
 
@@ -283,4 +292,10 @@ R.RenderStepped:Connect(function()
             end
         end
     end
+end)
+
+-- เคลียร์ของออกถ้าตัวละครตายเพื่อป้องกันบั๊กค้าง
+L.CharacterRemoving:Connect(function()
+    if bV then bV:Destroy() bV = nil end
+    if bG then bG:Destroy() bG = nil end
 end)
