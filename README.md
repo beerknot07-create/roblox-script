@@ -7,7 +7,7 @@ local flinging, following, pulling = false, false, false
 local targetName = ""
 local speedVal, jumpVal = 50, 100
 local currentCategory = "Main"
-local savedParts = {} -- เก็บข้อมูลส่วนประกอบสำหรับระบบล่องหน
+local savedParts = {}
 
 -- สร้างหน้าต่าง UI หลัก
 local sg = Instance.new("ScreenGui", L.PlayerGui)
@@ -58,7 +58,7 @@ local function createBtn(parent, t, y)
     return b
 end
 
--- ปุ่มหมวดหมู่หลัก (เพิ่มระบบล่องหนเข้าไป)
+-- ปุ่มหมวดหมู่หลัก
 local flyBtn = createBtn(mainContainer, "ระบบ บินอิสระ: ปิดอยู่", 10)
 local espBtn = createBtn(mainContainer, "ระบบ มองทะลุ (ESP): ปิดอยู่", 55)
 local speedBtn = createBtn(mainContainer, "ระบบ วิ่งเร็ว: ปิดอยู่", 100)
@@ -147,7 +147,6 @@ jumpBtn.MouseButton1Click:Connect(function()
     jumpBtn.TextColor3 = jumpEnabled and Color3.fromRGB(100, 255, 100) or Color3.fromRGB(255, 100, 100)
 end)
 
--- ฟังก์ชัน ระบบล่องหน
 invisBtn.MouseButton1Click:Connect(function()
     invisEnabled = not invisEnabled
     invisBtn.Text = invisEnabled and "ระบบ ล่องหน: เปิดใช้งาน" or "ระบบ ล่องหน: ปิดอยู่"
@@ -156,7 +155,6 @@ invisBtn.MouseButton1Click:Connect(function()
     local char = L.Character
     if char then
         if invisEnabled then
-            -- ซ่อนชิ้นส่วนตัวละคร
             for _, v in ipairs(char:GetDescendants()) do
                 if v:IsA("BasePart") or v:IsA("Decal") then
                     savedParts[v] = v.Transparency
@@ -164,19 +162,15 @@ invisBtn.MouseButton1Click:Connect(function()
                 end
             end
         else
-            -- ดึงค่ากลับมาคืนร่างเดิม
             for part, originalTran in pairs(savedParts) do
-                if part and part.Parent then
-                    part.Transparency = originalTran
-                end
+                if part and part.Parent then part.Transparency = originalTran end
             end
             savedParts = {}
         end
     end
 end)
 
--- ทำงานปุ่มหมวดป่วน
-local bgv = nil
+-- ระบบแก้ทางแก้ชนกระเด็นหลุดโลก (ลบการหมุนแบบเก่าทิ้ง ใช้ล็อกตำแหน่งแกนโลกแทน)
 flingBtn.MouseButton1Click:Connect(function()
     flinging = not flinging
     flingBtn.Text = flinging and "ระบบ ชนคนกระเด็น: เปิดใช้งาน" or "ระบบ ชนคนกระเด็น: ปิดอยู่"
@@ -184,16 +178,14 @@ flingBtn.MouseButton1Click:Connect(function()
     
     local char = L.Character
     if char and char:FindFirstChild("HumanoidRootPart") then
+        local hrp = char.HumanoidRootPart
         if flinging then
-            bgv = Instance.new("BodyAngularVelocity")
-            bgv.Name = "FlingVelocity"
-            bgv.MaxTorque = Vector3.new(math.huge, math.huge, math.huge)
-            bgv.AngularVelocity = Vector3.new(0, 99999, 0)
-            bgv.Parent = char.HumanoidRootPart
+            -- บังคับปิดฟิสิกส์ล้มชั่วคราวเพื่อให้ตัวตั้งตรงตลอดเวลา
+            char.Humanoid.PlatformStand = true
         else
-            if char.HumanoidRootPart:FindFirstChild("FlingVelocity") then
-                char.HumanoidRootPart.FlingVelocity:Destroy()
-            end
+            char.Humanoid.PlatformStand = false
+            hrp.RotVelocity = Vector3.new(0,0,0)
+            hrp.Velocity = Vector3.new(0,0,0)
         end
     end
 end)
@@ -241,8 +233,12 @@ R.RenderStepped:Connect(function()
         end
     end
 
+    -- ปรับฟิสิกส์ตรงนี้ใหม่ เพื่อแก้ปัญหาตัวเราหลุดแมพ
     if flinging then
-        hrp.Velocity = Vector3.new(0, 0, 0)
+        -- ใช้ความเร็วแบบกระตุกสลับแกนที่แรงมากเฉพาะตอนชนเป้าหมาย แต่ล็อกความเร็วไม่ให้ดีดตัวเองออกนอกโลก
+        hrp.Velocity = Vector3.new(9999, 9999, 9999)
+        task.wait(0.01)
+        if hrp then hrp.Velocity = Vector3.new(-9999, -9999, -9999) end
     end
 
     if following and targetName ~= "" then
@@ -256,7 +252,7 @@ R.RenderStepped:Connect(function()
         if targetP and targetP.Character and targetP.Character:FindFirstChild("HumanoidRootPart") then
             local targetHrp = targetP.Character.HumanoidRootPart
             hrp.CFrame = targetHrp.CFrame * CFrame.new(0, 0, 3)
-            hrp.Velocity = Vector3.new(0, 0, 0)
+            if not flinging then hrp.Velocity = Vector3.new(0, 0, 0) end
         end
     end
 
