@@ -9,8 +9,8 @@ if LocalPlayer.PlayerGui:FindFirstChild("ZxtataGui") then
     LocalPlayer.PlayerGui.ZxtataGui:Destroy()
 end
 
--- สถานะระบบ
-local flying, espEnabled, speedEnabled, jumpEnabled, invisEnabled = false, false, false, false, false
+-- สถานะระบบ (เพิ่ม noclip เข้าไปแล้ว)
+local flying, espEnabled, speedEnabled, jumpEnabled, invisEnabled, noclipEnabled = false, false, false, false, false, false
 local following, pulling = false, false
 local targetName = ""
 local speedVal, jumpVal = 50, 100
@@ -25,8 +25,8 @@ ScreenGui.Name = "ZxtataGui"
 ScreenGui.ResetOnSpawn = false
 
 local MainFrame = Instance.new("Frame", ScreenGui)
-MainFrame.Size = UDim2.new(0, 280, 0, 390)
-MainFrame.Position = UDim2.new(0.5, -140, 0.3, -195)
+MainFrame.Size = UDim2.new(0, 280, 0, 435)
+MainFrame.Position = UDim2.new(0.5, -140, 0.3, -217)
 MainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
 MainFrame.Active = true
 MainFrame.Draggable = true
@@ -38,7 +38,7 @@ FrameCorner.CornerRadius = UDim.new(0, 8)
 local TitleLabel = Instance.new("TextLabel", MainFrame)
 TitleLabel.Size = UDim2.new(1, -30, 0, 35)
 TitleLabel.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
-TitleLabel.Text = "  zxtata | เมนูหลัก (360°)"
+TitleLabel.Text = "  zxtata | เมนูหลัก (360° & Noclip)"
 TitleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
 TitleLabel.Font = Enum.Font.SourceSansBold
 TitleLabel.TextSize = 14
@@ -130,7 +130,8 @@ end)
 local EspBtn = createButton(MainContainer, "ระบบ มองทะลุ (ESP): ปิดอยู่", 100)
 local SpeedBtn = createButton(MainContainer, "ระบบ วิ่งเร็ว: ปิดอยู่", 145)
 local JumpBtn = createButton(MainContainer, "ระบบ กระโดดสูง: ปิดอยู่", 190)
-local InvisBtn = createButton(MainContainer, "ระบบ ล่องหน: ปิดอยู่", 235)
+local NoclipBtn = createButton(MainContainer, "ระบบ ทะลุกำแพง (Noclip): ปิดอยู่", 235)
+local InvisBtn = createButton(MainContainer, "ระบบ ล่องหน: ปิดอยู่", 280)
 
 -- ปุ่มหมวดหมู่ป่วน
 local FollowBtn = createButton(TrollContainer, "ระบบ วาร์ปตามติดตัว: ปิดอยู่", 15)
@@ -163,7 +164,7 @@ TabMainBtn.MouseButton1Click:Connect(function()
     TabMainBtn.TextColor3 = Color3.fromRGB(100, 255, 100)
     TabTrollBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
     TabTrollBtn.TextColor3 = Color3.fromRGB(200, 200, 200)
-    TitleLabel.Text = "  zxtata | เมนูหลัก (360°)"
+    TitleLabel.Text = "  zxtata | เมนูหลัก (360° & Noclip)"
 end)
 
 TabTrollBtn.MouseButton1Click:Connect(function()
@@ -185,7 +186,7 @@ MinimizeBtn.MouseButton1Click:Connect(function()
     TrollContainer.Visible = not isMinimized and (currentCategory == "Troll")
     TabMainBtn.Visible = not isMinimized
     TabTrollBtn.Visible = not isMinimized
-    MainFrame.Size = isMinimized and UDim2.new(0, 280, 0, 35) or UDim2.new(0, 280, 0, 390)
+    MainFrame.Size = isMinimized and UDim2.new(0, 280, 0, 35) or UDim2.new(0, 280, 0, 435)
     MinimizeBtn.Text = isMinimized and "+" or "-"
 end)
 
@@ -246,6 +247,12 @@ JumpBtn.MouseButton1Click:Connect(function()
     JumpBtn.TextColor3 = jumpEnabled and Color3.fromRGB(100, 255, 100) or Color3.fromRGB(255, 100, 100)
 end)
 
+NoclipBtn.MouseButton1Click:Connect(function()
+    noclipEnabled = not noclipEnabled
+    NoclipBtn.Text = noclipEnabled and "ระบบ ทะลุกำแพง (Noclip): เปิดใช้งาน" or "ระบบ ทะลุกำแพง (Noclip): ปิดอยู่"
+    NoclipBtn.TextColor3 = noclipEnabled and Color3.fromRGB(100, 255, 100) or Color3.fromRGB(255, 100, 100)
+end)
+
 InvisBtn.MouseButton1Click:Connect(function()
     invisEnabled = not invisEnabled
     InvisBtn.Text = invisEnabled and "ระบบ ล่องหน: เปิดใช้งาน" or "ระบบ ล่องหน: ปิดอยู่"
@@ -281,8 +288,8 @@ PullBtn.MouseButton1Click:Connect(function()
     PullBtn.TextColor3 = pulling and Color3.fromRGB(100, 255, 100) or Color3.fromRGB(255, 100, 100)
 end)
 
--- ลูปการทำงานเบื้องหลัง
-RunService.RenderStepped:Connect(function(dt)
+-- ลูปการทำงานเบื้องหลัง (แก้กระตุกโดยใช้ Heartbeat และคำนวณ CFrame สมูทๆ)
+RunService.Heartbeat:Connect(function(dt)
     local char = LocalPlayer.Character
     if not char or not char:FindFirstChild("HumanoidRootPart") or not char:FindFirstChild("Humanoid") then return end
     local hrp = char.HumanoidRootPart
@@ -291,7 +298,16 @@ RunService.RenderStepped:Connect(function(dt)
     if speedEnabled then hum.WalkSpeed = speedVal else hum.WalkSpeed = 16 end
     if jumpEnabled then hum.JumpPower = jumpVal else hum.JumpPower = 50 end
 
-    -- บินอิสระ 360 องศา
+    -- ระบบทะลุกำแพง (Noclip)
+    if noclipEnabled then
+        for _, part in ipairs(char:GetDescendants()) do
+            if part:IsA("BasePart") then
+                part.CanCollide = false
+            end
+        end
+    end
+
+    -- บินอิสระ 360 องศา (แบบไม่กระตุก)
     if flying and flyPlatform then
         hum.PlatformStand = true
         local camCFrame = Camera.CFrame
