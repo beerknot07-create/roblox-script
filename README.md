@@ -218,31 +218,31 @@ R.RenderStepped:Connect(function()
     if speedEnabled then hum.WalkSpeed = speedVal else hum.WalkSpeed = 16 end
     if jumpEnabled then hum.JumpPower = jumpVal else hum.JumpPower = 50 end
 
-    -- [แก้ไขจุดบกพร่อง] บังคับตัวละครล็อกหน้าตามเป้ากล้องเมาส์ 100% ไม่ว่าจะกดเดินทิศทางไหน
+    -- [แก้ไขครั้งสำคัญ] ระบบบินที่รองรับทั้ง มือถือ (จอยสติ๊ก) และ คอม (คีย์บอร์ด)
     if flying then
         hrp.Velocity = Vector3.new(0, 0, 0)
-        
-        local moveVector = Vector3.new(0, 0, 0)
-        
-        if U:IsKeyDown(Enum.KeyCode.W) then moveVector = moveVector + Vector3.new(0, 0, -1) end
-        if U:IsKeyDown(Enum.KeyCode.S) then moveVector = moveVector + Vector3.new(0, 0, 1) end
-        if U:IsKeyDown(Enum.KeyCode.A) then moveVector = moveVector + Vector3.new(-1, 0, 0) end
-        if U:IsKeyDown(Enum.KeyCode.D) then moveVector = moveVector + Vector3.new(1, 0, 0) end
-        if U:IsKeyDown(Enum.KeyCode.Space) then moveVector = moveVector + Vector3.new(0, 1, 0) end
-        if U:IsKeyDown(Enum.KeyCode.LeftControl) then moveVector = moveVector + Vector3.new(0, -1, 0) end
 
-        -- ดึงค่ามุมมองกล้องแนวราบ (X และ Z) เพื่อเอาไว้หันหน้าตัวละครตามกล้องตลอดเวลา
+        -- คำนวณทิศทางการหันหน้าโดยอิงตามมุมกล้องแนวราบ (X, Z) 100% หน้าจะตรงกับกล้องตลอดเวลา
         local cameraCFrame = C.CFrame
         local lookDir = cameraCFrame.LookVector
         local flatLookAt = Vector3.new(lookDir.X, 0, lookDir.Z).Unit
         local targetCFrame = CFrame.new(hrp.Position, hrp.Position + flatLookAt)
 
-        if moveVector.Magnitude > 0 then
-            -- บินเคลื่อนที่โดยอิงทิศทางจากกล้อง และคงการหันหน้าตามเมาส์
-            local direction = cameraCFrame:VectorToWorldSpace(moveVector)
-            hrp.CFrame = targetCFrame + (direction * (flySpeed / 10))
+        -- รองรับปุ่มบินขึ้น/ลงเสริมสำหรับมือถือ (ถ้ากดค้างคีย์บอร์ด Space/Ctrl ก็ทำงานด้วย)
+        local verticalMove = 0
+        if U:IsKeyDown(Enum.KeyCode.Space) then verticalMove = 1
+        elseif U:IsKeyDown(Enum.KeyCode.LeftControl) then verticalMove = -1 end
+
+        -- เช็คความเคลื่อนไหวจากระบบเกม (ครอบคลุมทั้งการขยับจอยสติ๊กบนมือถือ และปุ่มเดินบนคอม)
+        if hum.MoveDirection.Magnitude > 0 or verticalMove ~= 0 then
+            -- แปลงทิศทางจอยสติ๊กให้เคลื่อนที่ตามทิศทางมุมกล้องจริง
+            local moveDir = hum.MoveDirection * (flySpeed / 10)
+            local vertDir = Vector3.new(0, verticalMove * (flySpeed / 10), 0)
+            
+            -- อัปเดตตำแหน่งพิกัดใหม่ โดยหน้ายังคงล็อกหันตรงตามเมาส์/กล้องตลอดเวลา ไม่บิดเป๋
+            hrp.CFrame = targetCFrame + moveDir + vertDir
         else
-            -- ตอนปล่อยปุ่มอยู่เฉยๆ ตัวละครก็ต้องหันตามกล้องตลอดเวลา ไม่บิดไปทางอื่น
+            -- ปล่อยจอยสติ๊กหรือปล่อยปุ่มเดินปุ๊บ ล็อกตัวนิ่งสนิทหันหน้าตามกล้องทันที ไม่มีทางไหลหรือถอยหลังเอง
             hrp.CFrame = targetCFrame
         end
     end
