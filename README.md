@@ -1,7 +1,7 @@
 local P, R, U, C = game:GetService("Players"), game:GetService("RunService"), game:GetService("UserInputService"), workspace.CurrentCamera
 local L = P.LocalPlayer
 
--- สถานะฟังก์ชันทั้งหมด (ไม่มีชนกระเด็นแน่นอน)
+-- สถานะฟังก์ชันทั้งหมด
 local flying, espEnabled, speedEnabled, jumpEnabled, invisEnabled = false, false, false, false, false
 local following, pulling = false, false
 local targetName = ""
@@ -62,7 +62,6 @@ end
 -- ปุ่มหมวดหมู่หลัก
 local flyBtn = createBtn(mainContainer, "ระบบ บินอิสระ: ปิดอยู่", 10)
 
--- ช่องปรับความเร็วบิน
 local flySpeedBox = Instance.new("TextBox", mainContainer)
 flySpeedBox.Size, flySpeedBox.Position, flySpeedBox.BackgroundColor3, flySpeedBox.PlaceholderText, flySpeedBox.Text, flySpeedBox.TextColor3, flySpeedBox.Font, flySpeedBox.TextSize = UDim2.new(0, 240, 0, 30), UDim2.new(0, 20, 0, 55), Color3.fromRGB(35, 35, 35), "⚡ ความเร็วบิน (เริ่มต้น 50)...", "50", Color3.fromRGB(255, 255, 255), Enum.Font.SourceSans, 13
 flySpeedBox.BorderSizePixel = 0
@@ -78,17 +77,17 @@ local speedBtn = createBtn(mainContainer, "ระบบ วิ่งเร็ว
 local jumpBtn = createBtn(mainContainer, "ระบบ กระโดดสูง: ปิดอยู่", 190)
 local invisBtn = createBtn(mainContainer, "ระบบ ล่องหน: ปิดอยู่", 235)
 
--- ปุ่มหมวดหมู่ป่วน (คลีนปุ่มชนกระเด็นออกถาวร)
-local followBtn = createBtn(trollContainer, "ระบบ วาร์ปตามติดตัว: ปิดอยู่", 10)
+-- ปุ่มหมวดหมู่ป่วน
+local followBtn = createBtn(trollContainer, "ระบบ วาร์ปตามติดตัว: ปิดอยู่", 15)
 
 local nameBox = Instance.new("TextBox", trollContainer)
-nameBox.Size, nameBox.Position, nameBox.BackgroundColor3, nameBox.PlaceholderText, nameBox.Text, nameBox.TextColor3, nameBox.Font, nameBox.TextSize = UDim2.new(0, 240, 0, 30), UDim2.new(0, 20, 0, 55), Color3.fromRGB(35, 35, 35), "👉 พิมพ์ชื่อคนที่จะตามตรงนี้...", "", Color3.fromRGB(255, 255, 255), Enum.Font.SourceSans, 13
+nameBox.Size, nameBox.Position, nameBox.BackgroundColor3, nameBox.PlaceholderText, nameBox.Text, nameBox.TextColor3, nameBox.Font, nameBox.TextSize = UDim2.new(0, 240, 0, 30), UDim2.new(0, 20, 0, 65), Color3.fromRGB(35, 35, 35), "👉 พิมพ์ชื่อคนที่จะตามตรงนี้...", "", Color3.fromRGB(255, 255, 255), Enum.Font.SourceSans, 13
 nameBox.BorderSizePixel = 0
 local cornerN = Instance.new("UICorner", nameBox)
 cornerN.CornerRadius = UDim.new(0, 6)
 nameBox.FocusLost:Connect(function() targetName = nameBox.Text end)
 
-local pullBtn = createBtn(trollContainer, "ระบบ ดึงคนทั้งเซิร์ฟ: ปิดอยู่", 100)
+local pullBtn = createBtn(trollContainer, "ระบบ ดึงคนทั้งเซิร์ฟ: ปิดอยู่", 120)
 
 -- ระบบสลับแท็บ
 tabMain.MouseButton1Click:Connect(function()
@@ -219,20 +218,32 @@ R.RenderStepped:Connect(function()
     if speedEnabled then hum.WalkSpeed = speedVal else hum.WalkSpeed = 16 end
     if jumpEnabled then hum.JumpPower = jumpVal else hum.JumpPower = 50 end
 
-    -- [ระบบบินใหม่หมดจด] ยึดตามการกดปุ่มจริง ไม่ไหล ไม่ถอยหลังเอง ล็อกตัวนิ่ง ขาไม่ขยับ
+    -- [แก้ไขจุดบกพร่อง] บังคับตัวละครล็อกหน้าตามเป้ากล้องเมาส์ 100% ไม่ว่าจะกดเดินทิศทางไหน
     if flying then
-        hrp.Velocity = Vector3.new(0, 0, 0) -- ล้างความเร็วจากฟิสิกส์ทิ้งตลอดเวลาเพื่อไม่ให้ไหล
+        hrp.Velocity = Vector3.new(0, 0, 0)
         
-        if hum.MoveDirection.Magnitude > 0 then
-            -- หันหน้าตรงและเคลื่อนที่ตามมุมกล้องและปุ่มเคลื่อนที่โดยตรง
-            local lookVector = C.CFrame.LookVector
-            local moveVector = hum.MoveDirection
-            
-            -- อัปเดตตำแหน่ง CFrame ตามทิศทางกล้องคูณความเร็ว โดยไม่มีค่าเฉื่อยตกค้างมาดึงถอยหลัง
-            hrp.CFrame = CFrame.new(hrp.Position, hrp.Position + lookVector) * CFrame.new(moveVector.X * (flySpeed / 10), 0, moveVector.Z * (flySpeed / 10))
+        local moveVector = Vector3.new(0, 0, 0)
+        
+        if U:IsKeyDown(Enum.KeyCode.W) then moveVector = moveVector + Vector3.new(0, 0, -1) end
+        if U:IsKeyDown(Enum.KeyCode.S) then moveVector = moveVector + Vector3.new(0, 0, 1) end
+        if U:IsKeyDown(Enum.KeyCode.A) then moveVector = moveVector + Vector3.new(-1, 0, 0) end
+        if U:IsKeyDown(Enum.KeyCode.D) then moveVector = moveVector + Vector3.new(1, 0, 0) end
+        if U:IsKeyDown(Enum.KeyCode.Space) then moveVector = moveVector + Vector3.new(0, 1, 0) end
+        if U:IsKeyDown(Enum.KeyCode.LeftControl) then moveVector = moveVector + Vector3.new(0, -1, 0) end
+
+        -- ดึงค่ามุมมองกล้องแนวราบ (X และ Z) เพื่อเอาไว้หันหน้าตัวละครตามกล้องตลอดเวลา
+        local cameraCFrame = C.CFrame
+        local lookDir = cameraCFrame.LookVector
+        local flatLookAt = Vector3.new(lookDir.X, 0, lookDir.Z).Unit
+        local targetCFrame = CFrame.new(hrp.Position, hrp.Position + flatLookAt)
+
+        if moveVector.Magnitude > 0 then
+            -- บินเคลื่อนที่โดยอิงทิศทางจากกล้อง และคงการหันหน้าตามเมาส์
+            local direction = cameraCFrame:VectorToWorldSpace(moveVector)
+            hrp.CFrame = targetCFrame + (direction * (flySpeed / 10))
         else
-            -- เมื่อไม่ได้กดเดิน ล็อกตำแหน่ง x, y, z ให้อยู่กับที่นิ่งสนิท 100% แต่ยังสามารถหันหน้าตามเมาส์/กล้องรอบตัวได้
-            hrp.CFrame = CFrame.new(hrp.Position, hrp.Position + Vector3.new(C.CFrame.LookVector.X, 0, C.CFrame.LookVector.Z))
+            -- ตอนปล่อยปุ่มอยู่เฉยๆ ตัวละครก็ต้องหันตามกล้องตลอดเวลา ไม่บิดไปทางอื่น
+            hrp.CFrame = targetCFrame
         end
     end
 
