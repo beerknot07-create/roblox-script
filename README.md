@@ -1,7 +1,7 @@
 local P, R, U, C = game:GetService("Players"), game:GetService("RunService"), game:GetService("UserInputService"), workspace.CurrentCamera
 local L = P.LocalPlayer
 
--- สถานะฟังก์ชันทั้งหมด (ลบ flinging ออกแล้ว)
+-- สถานะฟังก์ชันทั้งหมด (ไม่มีชนกระเด็นแน่นอน)
 local flying, espEnabled, speedEnabled, jumpEnabled, invisEnabled = false, false, false, false, false
 local following, pulling = false, false
 local targetName = ""
@@ -78,7 +78,7 @@ local speedBtn = createBtn(mainContainer, "ระบบ วิ่งเร็ว
 local jumpBtn = createBtn(mainContainer, "ระบบ กระโดดสูง: ปิดอยู่", 190)
 local invisBtn = createBtn(mainContainer, "ระบบ ล่องหน: ปิดอยู่", 235)
 
--- ปุ่มหมวดหมู่ป่วน (เอาปุ่มชนกระเด็นออก และขยับตำแหน่งปุ่มที่เหลือขึ้นมาให้สวยงาม)
+-- ปุ่มหมวดหมู่ป่วน (คลีนปุ่มชนกระเด็นออกถาวร)
 local followBtn = createBtn(trollContainer, "ระบบ วาร์ปตามติดตัว: ปิดอยู่", 10)
 
 local nameBox = Instance.new("TextBox", trollContainer)
@@ -129,25 +129,24 @@ U.InputBegan:Connect(function(i, g)
     if not g and i.KeyCode == Enum.KeyCode.Insert then f.Visible = not f.Visible end
 end)
 
--- ระบบบินปุ่มเดิม
+-- ปุ่มเปิด/ปิดบิน
 flyBtn.MouseButton1Click:Connect(function()
     flying = not flying
     flyBtn.Text = flying and "ระบบ บินอิสระ: เปิดใช้งาน" or "ระบบ บินอิสระ: ปิดอยู่"
     flyBtn.TextColor3 = flying and Color3.fromRGB(100, 255, 100) or Color3.fromRGB(255, 100, 100)
     
     local c = L.Character
-    local r = c and c:FindFirstChild("HumanoidRootPart")
     local h = c and c:FindFirstChild("Humanoid")
     local anim = c and c:FindFirstChild("Animate")
-    if r and h then
+    local r = c and c:FindFirstChild("HumanoidRootPart")
+    
+    if h then
         if flying then
-            local bv = Instance.new("BodyVelocity", r)
-            bv.Name, bv.MaxForce, bv.Velocity = "F_Vel", Vector3.new(1e5, 1e5, 1e5), Vector3.new(0, 0, 0)
             if anim then anim.Enabled = false end
             for _, tr in ipairs(h:GetPlayingAnimationTracks()) do tr:Stop() end
         else
             if anim then anim.Enabled = true end
-            if r:FindFirstChild("F_Vel") then r.F_Vel:Destroy() end
+            if r then r.Velocity = Vector3.new(0,0,0) end
         end
     end
 end)
@@ -220,20 +219,20 @@ R.RenderStepped:Connect(function()
     if speedEnabled then hum.WalkSpeed = speedVal else hum.WalkSpeed = 16 end
     if jumpEnabled then hum.JumpPower = jumpVal else hum.JumpPower = 50 end
 
-    -- ระบบบินล็อกตัวนิ่งไม่ถอยหลัง
-    if flying and L.Character and L.Character:FindFirstChild("HumanoidRootPart") then
-        local r = L.Character.HumanoidRootPart
-        local h = L.Character:FindFirstChild("Humanoid")
-        local bv = r:FindFirstChild("F_Vel")
-        if bv and h then
-            if h.MoveDirection.Magnitude > 0 then
-                r.CFrame = CFrame.new(r.Position, r.Position + C.CFrame.LookVector)
-                bv.Velocity = C.CFrame.LookVector * flySpeed
-            else
-                bv.Velocity = Vector3.new(0,0,0)
-                r.Velocity = Vector3.new(0,0,0)
-                r.CFrame = CFrame.new(r.Position, r.Position + Vector3.new(C.CFrame.LookVector.X, 0, C.CFrame.LookVector.Z))
-            end
+    -- [ระบบบินใหม่หมดจด] ยึดตามการกดปุ่มจริง ไม่ไหล ไม่ถอยหลังเอง ล็อกตัวนิ่ง ขาไม่ขยับ
+    if flying then
+        hrp.Velocity = Vector3.new(0, 0, 0) -- ล้างความเร็วจากฟิสิกส์ทิ้งตลอดเวลาเพื่อไม่ให้ไหล
+        
+        if hum.MoveDirection.Magnitude > 0 then
+            -- หันหน้าตรงและเคลื่อนที่ตามมุมกล้องและปุ่มเคลื่อนที่โดยตรง
+            local lookVector = C.CFrame.LookVector
+            local moveVector = hum.MoveDirection
+            
+            -- อัปเดตตำแหน่ง CFrame ตามทิศทางกล้องคูณความเร็ว โดยไม่มีค่าเฉื่อยตกค้างมาดึงถอยหลัง
+            hrp.CFrame = CFrame.new(hrp.Position, hrp.Position + lookVector) * CFrame.new(moveVector.X * (flySpeed / 10), 0, moveVector.Z * (flySpeed / 10))
+        else
+            -- เมื่อไม่ได้กดเดิน ล็อกตำแหน่ง x, y, z ให้อยู่กับที่นิ่งสนิท 100% แต่ยังสามารถหันหน้าตามเมาส์/กล้องรอบตัวได้
+            hrp.CFrame = CFrame.new(hrp.Position, hrp.Position + Vector3.new(C.CFrame.LookVector.X, 0, C.CFrame.LookVector.Z))
         end
     end
 
