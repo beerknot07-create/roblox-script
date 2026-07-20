@@ -6,6 +6,7 @@ local flying, espEnabled, speedEnabled, jumpEnabled, invisEnabled = false, false
 local flinging, following, pulling = false, false, false
 local targetName = ""
 local speedVal, jumpVal = 50, 100
+local flySpeed = 2 -- ค่าเริ่มต้นของความเร็วในการบิน
 local currentCategory = "Main"
 local savedParts = {}
 
@@ -14,7 +15,7 @@ local sg = Instance.new("ScreenGui", L.PlayerGui)
 sg.ResetOnSpawn = false
 
 local f = Instance.new("Frame", sg)
-f.Size, f.Position, f.BackgroundColor3, f.Active, f.Draggable = UDim2.new(0, 280, 0, 350), UDim2.new(0.5, -140, 0.3, -175), Color3.fromRGB(25, 25, 25), true, true
+f.Size, f.Position, f.BackgroundColor3, f.Active, f.Draggable = UDim2.new(0, 280, 0, 390), UDim2.new(0.5, -140, 0.3, -195), Color3.fromRGB(25, 25, 25), true, true
 f.BorderSizePixel = 0
 
 local corner = Instance.new("UICorner", f)
@@ -60,10 +61,22 @@ end
 
 -- ปุ่มหมวดหมู่หลัก
 local flyBtn = createBtn(mainContainer, "ระบบ บินอิสระ: ปิดอยู่", 10)
-local espBtn = createBtn(mainContainer, "ระบบ มองทะลุ (ESP): ปิดอยู่", 55)
-local speedBtn = createBtn(mainContainer, "ระบบ วิ่งเร็ว: ปิดอยู่", 100)
-local jumpBtn = createBtn(mainContainer, "ระบบ กระโดดสูง: ปิดอยู่", 145)
-local invisBtn = createBtn(mainContainer, "ระบบ ล่องหน: ปิดอยู่", 190)
+
+-- ช่องปรับความเร็วบิน
+local flySpeedBox = Instance.new("TextBox", mainContainer)
+flySpeedBox.Size, flySpeedBox.Position, flySpeedBox.BackgroundColor3, flySpeedBox.PlaceholderText, flySpeedBox.Text, flySpeedBox.TextColor3, flySpeedBox.Font, flySpeedBox.TextSize = UDim2.new(0, 240, 0, 30), UDim2.new(0, 20, 0, 55), Color3.fromRGB(35, 35, 35), "⚡ ความเร็วบิน (เริ่มต้น 2)...", "2", Color3.fromRGB(255, 255, 255), Enum.Font.SourceSans, 13
+flySpeedBox.BorderSizePixel = 0
+local cornerFS = Instance.new("UICorner", flySpeedBox)
+cornerFS.CornerRadius = UDim.new(0, 6)
+flySpeedBox.FocusLost:Connect(function()
+    local num = tonumber(flySpeedBox.Text)
+    if num then flySpeed = num else flySpeed = 2 flySpeedBox.Text = "2" end
+end)
+
+local espBtn = createBtn(mainContainer, "ระบบ มองทะลุ (ESP): ปิดอยู่", 100)
+local speedBtn = createBtn(mainContainer, "ระบบ วิ่งเร็ว: ปิดอยู่", 145)
+local jumpBtn = createBtn(mainContainer, "ระบบ กระโดดสูง: ปิดอยู่", 190)
+local invisBtn = createBtn(mainContainer, "ระบบ ล่องหน: ปิดอยู่", 235)
 
 -- ปุ่มหมวดหมู่ป่วน
 local flingBtn = createBtn(trollContainer, "ระบบ ชนคนกระเด็น: ปิดอยู่", 10)
@@ -109,7 +122,7 @@ mB.MouseButton1Click:Connect(function()
     trollContainer.Visible = not min and (currentCategory == "Troll")
     tabMain.Visible = not min
     tabTroll.Visible = not min
-    f.Size = min and UDim2.new(0, 280, 0, 35) or UDim2.new(0, 280, 0, 350)
+    f.Size = min and UDim2.new(0, 280, 0, 35) or UDim2.new(0, 280, 0, 390)
     mB.Text = min and "+" or "-"
 end)
 
@@ -170,7 +183,6 @@ invisBtn.MouseButton1Click:Connect(function()
     end
 end)
 
--- ระบบแก้ทางแก้ชนกระเด็นหลุดโลก (ลบการหมุนแบบเก่าทิ้ง ใช้ล็อกตำแหน่งแกนโลกแทน)
 flingBtn.MouseButton1Click:Connect(function()
     flinging = not flinging
     flingBtn.Text = flinging and "ระบบ ชนคนกระเด็น: เปิดใช้งาน" or "ระบบ ชนคนกระเด็น: ปิดอยู่"
@@ -180,7 +192,6 @@ flingBtn.MouseButton1Click:Connect(function()
     if char and char:FindFirstChild("HumanoidRootPart") then
         local hrp = char.HumanoidRootPart
         if flinging then
-            -- บังคับปิดฟิสิกส์ล้มชั่วคราวเพื่อให้ตัวตั้งตรงตลอดเวลา
             char.Humanoid.PlatformStand = true
         else
             char.Humanoid.PlatformStand = false
@@ -212,12 +223,13 @@ R.RenderStepped:Connect(function()
     if speedEnabled then hum.WalkSpeed = speedVal else hum.WalkSpeed = 16 end
     if jumpEnabled then hum.JumpPower = jumpVal else hum.JumpPower = 50 end
 
+    -- ระบบบินแบบดั้งเดิม (คูณด้วยค่า flySpeed ตามช่องพิมพ์)
     if flying then
         local cam = workspace.CurrentCamera
         hrp.Velocity = Vector3.new(0, 0, 0)
         local moveDir = hum.MoveDirection
         if moveDir.Magnitude > 0 then
-            hrp.CFrame = hrp.CFrame + (cam.CFrame.LookVector * moveDir.Z + cam.CFrame.RightVector * moveDir.X) * 2
+            hrp.CFrame = hrp.CFrame + (cam.CFrame.LookVector * moveDir.Z + cam.CFrame.RightVector * moveDir.X) * flySpeed
         end
     end
 
@@ -233,9 +245,7 @@ R.RenderStepped:Connect(function()
         end
     end
 
-    -- ปรับฟิสิกส์ตรงนี้ใหม่ เพื่อแก้ปัญหาตัวเราหลุดแมพ
     if flinging then
-        -- ใช้ความเร็วแบบกระตุกสลับแกนที่แรงมากเฉพาะตอนชนเป้าหมาย แต่ล็อกความเร็วไม่ให้ดีดตัวเองออกนอกโลก
         hrp.Velocity = Vector3.new(9999, 9999, 9999)
         task.wait(0.01)
         if hrp then hrp.Velocity = Vector3.new(-9999, -9999, -9999) end
