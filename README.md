@@ -1,12 +1,12 @@
 local P, R, U, C = game:GetService("Players"), game:GetService("RunService"), game:GetService("UserInputService"), workspace.CurrentCamera
 local L = P.LocalPlayer
 
--- สถานะฟังก์ชันทั้งหมด
+-- สถานะฟังก์ชันทั้งหมด (ลบ flinging ออกแล้ว)
 local flying, espEnabled, speedEnabled, jumpEnabled, invisEnabled = false, false, false, false, false
-local flinging, following, pulling = false, false, false
+local following, pulling = false, false
 local targetName = ""
 local speedVal, jumpVal = 50, 100
-local flySpeed = 50 -- ใช้ค่าความเร็วเริ่มต้นแบบสคริปต์เก่าของคุณ
+local flySpeed = 50
 local currentCategory = "Main"
 local savedParts = {}
 
@@ -62,7 +62,7 @@ end
 -- ปุ่มหมวดหมู่หลัก
 local flyBtn = createBtn(mainContainer, "ระบบ บินอิสระ: ปิดอยู่", 10)
 
--- ช่องปรับความเร็วบิน (เปลี่ยนเป็น TextBox เพื่อพิมพ์ตัวเลขอิสระตามต้องการได้เลย)
+-- ช่องปรับความเร็วบิน
 local flySpeedBox = Instance.new("TextBox", mainContainer)
 flySpeedBox.Size, flySpeedBox.Position, flySpeedBox.BackgroundColor3, flySpeedBox.PlaceholderText, flySpeedBox.Text, flySpeedBox.TextColor3, flySpeedBox.Font, flySpeedBox.TextSize = UDim2.new(0, 240, 0, 30), UDim2.new(0, 20, 0, 55), Color3.fromRGB(35, 35, 35), "⚡ ความเร็วบิน (เริ่มต้น 50)...", "50", Color3.fromRGB(255, 255, 255), Enum.Font.SourceSans, 13
 flySpeedBox.BorderSizePixel = 0
@@ -78,18 +78,17 @@ local speedBtn = createBtn(mainContainer, "ระบบ วิ่งเร็ว
 local jumpBtn = createBtn(mainContainer, "ระบบ กระโดดสูง: ปิดอยู่", 190)
 local invisBtn = createBtn(mainContainer, "ระบบ ล่องหน: ปิดอยู่", 235)
 
--- ปุ่มหมวดหมู่ป่วน
-local flingBtn = createBtn(trollContainer, "ระบบ ชนคนกระเด็น: ปิดอยู่", 10)
-local followBtn = createBtn(trollContainer, "ระบบ วาร์ปตามติดตัว: ปิดอยู่", 55)
+-- ปุ่มหมวดหมู่ป่วน (เอาปุ่มชนกระเด็นออก และขยับตำแหน่งปุ่มที่เหลือขึ้นมาให้สวยงาม)
+local followBtn = createBtn(trollContainer, "ระบบ วาร์ปตามติดตัว: ปิดอยู่", 10)
 
 local nameBox = Instance.new("TextBox", trollContainer)
-nameBox.Size, nameBox.Position, nameBox.BackgroundColor3, nameBox.PlaceholderText, nameBox.Text, nameBox.TextColor3, nameBox.Font, nameBox.TextSize = UDim2.new(0, 240, 0, 30), UDim2.new(0, 20, 0, 100), Color3.fromRGB(35, 35, 35), "👉 พิมพ์ชื่อคนที่จะตามตรงนี้...", "", Color3.fromRGB(255, 255, 255), Enum.Font.SourceSans, 13
+nameBox.Size, nameBox.Position, nameBox.BackgroundColor3, nameBox.PlaceholderText, nameBox.Text, nameBox.TextColor3, nameBox.Font, nameBox.TextSize = UDim2.new(0, 240, 0, 30), UDim2.new(0, 20, 0, 55), Color3.fromRGB(35, 35, 35), "👉 พิมพ์ชื่อคนที่จะตามตรงนี้...", "", Color3.fromRGB(255, 255, 255), Enum.Font.SourceSans, 13
 nameBox.BorderSizePixel = 0
 local cornerN = Instance.new("UICorner", nameBox)
 cornerN.CornerRadius = UDim.new(0, 6)
 nameBox.FocusLost:Connect(function() targetName = nameBox.Text end)
 
-local pullBtn = createBtn(trollContainer, "ระบบ ดึงคนทั้งเซิร์ฟ: ปิดอยู่", 145)
+local pullBtn = createBtn(trollContainer, "ระบบ ดึงคนทั้งเซิร์ฟ: ปิดอยู่", 100)
 
 -- ระบบสลับแท็บ
 tabMain.MouseButton1Click:Connect(function()
@@ -130,7 +129,7 @@ U.InputBegan:Connect(function(i, g)
     if not g and i.KeyCode == Enum.KeyCode.Insert then f.Visible = not f.Visible end
 end)
 
--- โค้ดกดปุ่มบิน บล็อกดั้งเดิมจากสคริปต์เก่าของคุณ (ตัดโมเดลอนิเมชันให้ตัวนิ่ง)
+-- ระบบบินปุ่มเดิม
 flyBtn.MouseButton1Click:Connect(function()
     flying = not flying
     flyBtn.Text = flying and "ระบบ บินอิสระ: เปิดใช้งาน" or "ระบบ บินอิสระ: ปิดอยู่"
@@ -199,24 +198,6 @@ invisBtn.MouseButton1Click:Connect(function()
     end
 end)
 
-flingBtn.MouseButton1Click:Connect(function()
-    flinging = not flinging
-    flingBtn.Text = flinging and "ระบบ ชนคนกระเด็น: เปิดใช้งาน" or "ระบบ ชนคนกระเด็น: ปิดอยู่"
-    flingBtn.TextColor3 = flinging and Color3.fromRGB(100, 255, 100) or Color3.fromRGB(255, 100, 100)
-    
-    local char = L.Character
-    if char and char:FindFirstChild("HumanoidRootPart") then
-        local hrp = char.HumanoidRootPart
-        if flinging then
-            char.Humanoid.PlatformStand = true
-        else
-            char.Humanoid.PlatformStand = false
-            hrp.RotVelocity = Vector3.new(0,0,0)
-            hrp.Velocity = Vector3.new(0,0,0)
-        end
-    end
-end)
-
 followBtn.MouseButton1Click:Connect(function()
     following = not following
     followBtn.Text = following and "ระบบ วาร์ปตามติดตัว: เปิดใช้งาน" or "ระบบ วาร์ปตามติดตัว: ปิดอยู่"
@@ -239,18 +220,19 @@ R.RenderStepped:Connect(function()
     if speedEnabled then hum.WalkSpeed = speedVal else hum.WalkSpeed = 16 end
     if jumpEnabled then hum.JumpPower = jumpVal else hum.JumpPower = 50 end
 
-    -- โลจิกการบินดั้งเดิมจากสคริปต์เก่าของคุณเป๊ะๆ ตัวล็อกนิ่ง ขาไม่ขยับ และหันตามกล้อง 100%
+    -- ระบบบินล็อกตัวนิ่งไม่ถอยหลัง
     if flying and L.Character and L.Character:FindFirstChild("HumanoidRootPart") then
         local r = L.Character.HumanoidRootPart
         local h = L.Character:FindFirstChild("Humanoid")
         local bv = r:FindFirstChild("F_Vel")
         if bv and h then
-            r.CFrame = CFrame.new(r.Position, r.Position + C.CFrame.LookVector)
             if h.MoveDirection.Magnitude > 0 then
+                r.CFrame = CFrame.new(r.Position, r.Position + C.CFrame.LookVector)
                 bv.Velocity = C.CFrame.LookVector * flySpeed
             else
                 bv.Velocity = Vector3.new(0,0,0)
                 r.Velocity = Vector3.new(0,0,0)
+                r.CFrame = CFrame.new(r.Position, r.Position + Vector3.new(C.CFrame.LookVector.X, 0, C.CFrame.LookVector.Z))
             end
         end
     end
@@ -267,12 +249,6 @@ R.RenderStepped:Connect(function()
         end
     end
 
-    if flinging then
-        hrp.Velocity = Vector3.new(9999, 9999, 9999)
-        task.wait(0.01)
-        if hrp then hrp.Velocity = Vector3.new(-9999, -9999, -9999) end
-    end
-
     if following and targetName ~= "" then
         local targetP = nil
         for _, p in ipairs(P:GetPlayers()) do
@@ -284,7 +260,7 @@ R.RenderStepped:Connect(function()
         if targetP and targetP.Character and targetP.Character:FindFirstChild("HumanoidRootPart") then
             local targetHrp = targetP.Character.HumanoidRootPart
             hrp.CFrame = targetHrp.CFrame * CFrame.new(0, 0, 3)
-            if not flinging then hrp.Velocity = Vector3.new(0, 0, 0) end
+            hrp.Velocity = Vector3.new(0, 0, 0)
         end
     end
 
