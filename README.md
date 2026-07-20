@@ -6,7 +6,7 @@ local flying, espEnabled, speedEnabled, jumpEnabled, invisEnabled = false, false
 local flinging, following, pulling = false, false, false
 local targetName = ""
 local speedVal, jumpVal = 50, 100
-local flySpeed = 2 -- ค่าเริ่มต้นของความเร็วในการบิน
+local flySpeed = 2
 local currentCategory = "Main"
 local savedParts = {}
 
@@ -135,6 +135,13 @@ flyBtn.MouseButton1Click:Connect(function()
     flying = not flying
     flyBtn.Text = flying and "ระบบ บินอิสระ: เปิดใช้งาน" or "ระบบ บินอิสระ: ปิดอยู่"
     flyBtn.TextColor3 = flying and Color3.fromRGB(100, 255, 100) or Color3.fromRGB(255, 100, 100)
+    
+    local char = L.Character
+    if char and char:FindFirstChild("Humanoid") then
+        if not flying then
+            char.Humanoid.PlatformStand = false
+        end
+    end
 end)
 
 espBtn.MouseButton1Click:Connect(function()
@@ -194,7 +201,7 @@ flingBtn.MouseButton1Click:Connect(function()
         if flinging then
             char.Humanoid.PlatformStand = true
         else
-            char.Humanoid.PlatformStand = false
+            if not flying then char.Humanoid.PlatformStand = false end
             hrp.RotVelocity = Vector3.new(0,0,0)
             hrp.Velocity = Vector3.new(0,0,0)
         end
@@ -223,14 +230,27 @@ R.RenderStepped:Connect(function()
     if speedEnabled then hum.WalkSpeed = speedVal else hum.WalkSpeed = 16 end
     if jumpEnabled then hum.JumpPower = jumpVal else hum.JumpPower = 50 end
 
-    -- ระบบบินแบบดั้งเดิม (คูณด้วยค่า flySpeed ตามช่องพิมพ์)
+    -- แก้ไขระบบบิน: ล็อกตัวละครให้นิ่งตรงทิศทางหน้ากล้อง 100% ตัวไม่ขยับขามั่วซั่ว
     if flying then
         local cam = workspace.CurrentCamera
+        hum.PlatformStand = true -- สั่งให้ตัวละครหยุดแสดงอนิเมชันเดิน/นิ่งสนิท
         hrp.Velocity = Vector3.new(0, 0, 0)
+        
         local moveDir = hum.MoveDirection
         if moveDir.Magnitude > 0 then
-            hrp.CFrame = hrp.CFrame + (cam.CFrame.LookVector * moveDir.Z + cam.CFrame.RightVector * moveDir.X) * flySpeed
+            -- ปรับโครงสร้างเวกเตอร์ให้บินพุ่งไปข้างหน้าตรงๆ ตามทิศกล้อง
+            local lookVector = cam.CFrame.LookVector
+            local rightVector = cam.CFrame.RightVector
+            
+            -- ตรวจสอบทิศทางการกดเพื่อเคลื่อนที่ตามหน้ากล้องจริง ไม่กลับหลัง
+            local goForward = lookVector * (-moveDir.Z) + rightVector * moveDir.X
+            hrp.CFrame = CFrame.new(hrp.Position, hrp.Position + lookVector) * CFrame.new(moveDir.X * flySpeed, 0, moveDir.Z * flySpeed)
+        else
+            -- ยืนนิ่งๆ กลางอากาศและล็อกหน้าตรงตามกล้องมอง
+            hrp.CFrame = CFrame.new(hrp.Position, hrp.Position + Vector3.new(cam.CFrame.LookVector.X, 0, cam.CFrame.LookVector.Z))
         end
+    elseif not flinging then
+        hum.PlatformStand = false
     end
 
     if espEnabled then
